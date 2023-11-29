@@ -1,111 +1,132 @@
-program tictactoe.aleo {
-    // A row in a tic tac toe board.
-    // - `c1` : The first entry in the row.
-    // - `c2` : The second entry in the row.
-    // - `c3` : The third entry in the row.
-    // A valid entry is either 0, 1, or 2, where 0 is empty, 1 corresponds to player 1, and 2 corresponds to player 2.
-    // Any other values are invalid.
-    struct Row {
-        c1: u8,
-        c2: u8,
-        c3: u8
+program sesame.aleo {
+    struct Organizer {
+        authority: address,
+        name_a: [u8; 32],
+        name_b: [u8; 32],
     }
 
-    // A tic tac toe board.
-    // - `r1` : The first row in the board.
-    // - `r2` : The second row in the board.
-    // - `r3` : The third row in the board.
-    struct Board {
-        r1: Row,
-        r2: Row,
-        r3: Row,
+    struct Event {
+        authority_ticket: address,
+        authority_check_in: address,
+        num_tickets_issued: u32,
+        num_tickets_max: u32,
     }
 
-    // Returns an empty board.
-    transition new() -> Board {
-        return Board {
-            r1: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
-            r2: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
-            r3: Row { c1: 0u8, c2: 0u8, c3: 0u8 },
-        };
+    record Ticket {
+        owner: address,
+        event_id: u64,
+        seat: u32,
+        checked_in: bool,
     }
 
-    // Returns `true` if there exists a row, column, or diagonal with all entries occupied by the same player.
-    // - `b` : A tic tac toe board.
-    // - `p` : A number corresponding to a player.
-    function check_for_win(b: Board, p: u8) -> bool {
-        return
-            (b.r1.c1 == p && b.r1.c2 == p && b.r1.c3 == p) || // row 1
-            (b.r2.c1 == p && b.r2.c2 == p && b.r2.c3 == p) || // row 2
-            (b.r3.c1 == p && b.r3.c3 == p && b.r3.c3 == p) || // row 3
-            (b.r1.c1 == p && b.r2.c1 == p && b.r3.c1 == p) || // column 1
-            (b.r1.c2 == p && b.r2.c3 == p && b.r3.c2 == p) || // column 2
-            (b.r1.c3 == p && b.r2.c3 == p && b.r3.c3 == p) || // column 3
-            (b.r1.c1 == p && b.r2.c2 == p && b.r3.c3 == p) || // diagonal
-            (b.r1.c3 == p && b.r2.c2 == p && b.r3.c1 == p); // other diagonal
+    mapping organizers: u32 => Organizer;
+
+    mapping events: u64 => Event;
+
+    
+    // Register self as an organizer
+    transition register_organizer(organizer_id: u32, name_a: [u8; 32], name_b: [u8; 32]) {
+        return then finalize(organizer_id, self.caller, name_a, name_b);
     }
 
-    // Returns an updated tic tac toe board with a move made by a player.
-    // Returns a `u8` corresponding to the player who won the game, or 0 if no one has won yet.
-    // - `player` : A number corresponding to a player.
-    // - `row`    : The row of the move.
-    // - `col`    : The column of the move.
-    // - `board`  : A tic tac toe board.
-    // Assumes that `player` is either 1 or 2.
-    // Assumes that `row` and `col` are valid indices into the board.
-    // If an entry is already occupied, the move is invalid and the board is returned unchanged.
-    transition make_move(player: u8, row: u8, col: u8, board: Board) -> (Board, u8) {
-        // Check that inputs are valid.
-        assert(player == 1u8 || player == 2u8);
-        assert(1u8 <= row && row <= 3u8);
-        assert(1u8 <= col && col <= 3u8);
+    finalize register_organizer(organizer_id: u32, caller: address, name_a: [u8; 32], name_b: [u8; 32]) {
+        let organizer_exists: bool = Mapping::contains(organizers, organizer_id);
 
-        // Unpack the entries in the board into variables.
-        let r1c1: u8 = board.r1.c1;
-        let r1c2: u8 = board.r1.c2;
-        let r1c3: u8 = board.r1.c3;
-        let r2c1: u8 = board.r2.c1;
-        let r2c2: u8 = board.r2.c2;
-        let r2c3: u8 = board.r2.c3;
-        let r3c1: u8 = board.r3.c1;
-        let r3c2: u8 = board.r3.c2;
-        let r3c3: u8 = board.r3.c3;
+        // Organizer must not yet exist
+        assert(!organizer_exists);
 
-        // Update the appropriate entry with the given move.
-        if row == 1u8 && col == 1u8 && r1c1 == 0u8 {
-            r1c1 = player;
-        } else if row == 1u8 && col == 2u8 && r1c2 == 0u8 {
-            r1c2 = player;
-        } else if row == 1u8 && col == 3u8 && r1c3 == 0u8 {
-            r1c3 = player;
-        } else if row == 2u8 && col == 1u8 && r2c1 == 0u8 {
-            r2c1 = player;
-        } else if row == 2u8 && col == 2u8 && r2c2 == 0u8 {
-            r2c2 = player;
-        } else if row == 2u8 && col == 3u8 && r2c3 == 0u8 {
-            r2c3 = player;
-        } else if row == 3u8 && col == 1u8 && r3c1 == 0u8 {
-            r3c1 = player;
-        } else if row == 3u8 && col == 2u8 && r3c2 == 0u8 {
-            r3c2 = player;
-        } else if row == 3u8 && col == 3u8 && r3c3 == 0u8 {
-            r3c3 = player;
-        }
-
-        // Construct the updated game board.
-        let updated: Board = Board {
-            r1: Row { c1: r1c1, c2: r1c2, c3: r1c3 },
-            r2: Row { c1: r2c1, c2: r2c2, c3: r2c3 },
-            r3: Row { c1: r3c1, c2: r3c2, c3: r3c3 },
+        // Update the organizer mapping
+        let organizer_info_new: Organizer = Organizer {
+            authority: caller,
+            name_a,
+            name_b,
         };
 
-        // Check if the game is over.
-        if check_for_win(updated, 1u8) {
-            return (updated, 1u8);
-        } else if check_for_win(updated, 2u8) {
-            return (updated, 2u8);
-        } else {
-            return (updated, 0u8);
-        }
+        Mapping::set(organizers, organizer_id, organizer_info_new);
+    }
+
+    // Update the authority for some organizer
+    //TODO
+
+
+    // Register a new event
+    transition create_event(organizer_id: u32, event_id: u64, authority_ticket: address, authority_check_in: address, num_tickets_max: u32) {
+        return then finalize(self.caller, organizer_id, event_id, authority_ticket, authority_check_in, num_tickets_max);
+    }
+
+    finalize create_event (caller: address, organizer_id: u32, event_id: u64, authority_ticket: address, authority_check_in: address, num_tickets_max: u32) {
+        // The event_id >> 32 must match the organizer_id
+        let organizer_from_event: u32 = (event_id >> 32u8) as u32;
+        assert_eq(organizer_from_event, organizer_id);
+
+        // The event must not yet exist
+        let event_exists: bool = Mapping::contains(events, event_id);
+        assert(!event_exists);
+
+        // Organizer must be registered & authority must be the caller
+        let organizer_info: Organizer = Mapping::get(organizers, organizer_id);
+        assert_eq(organizer_info.authority, caller);
+
+        // Update the events mapping
+        let event_info_new: Event = Event {
+            authority_ticket,
+            authority_check_in,
+            num_tickets_issued: 0u32,
+            num_tickets_max,
+        };
+
+        Mapping::set(events, event_id, event_info_new);
+    }
+
+    // Update event authorities
+    //TODO
+
+
+    // Issue a ticket for some event
+    transition ticket_issue(event_id: u64, seat: u32, issue_to: address) -> Ticket {
+        return Ticket {
+            owner: issue_to,
+            event_id,
+            seat,
+            checked_in: false,
+        } then finalize(self.caller, event_id);
+    }
+
+    finalize ticket_issue(caller: address, event_id: u64) {
+        // Load the event in question
+        let event_info: Event = Mapping::get(events, event_id);
+
+        // Makes sure the caller is authorized to issue tickets for this event
+        assert_eq(caller, event_info.authority_ticket);
+
+        // Make sure more tickets can still be issued
+        assert(event_info.num_tickets_issued < event_info.num_tickets_max);
+
+        // Update the number of issued tickets
+        let event_info_new: Event = Event {
+            authority_ticket: event_info.authority_ticket,
+            authority_check_in: event_info.authority_check_in,
+            num_tickets_issued: event_info.num_tickets_issued.add(1u32),
+            num_tickets_max: event_info.num_tickets_max,
+        };
+
+        Mapping::set(events, event_id, event_info_new);
+    }
+
+
+    transition ticket_check_in(ticket: Ticket) -> Ticket {
+        //TODO how to actually do this in aleo...
+        // should be signed by events ticket_check_in authority; but object is private belongs to atendee?
+        // maybe issue some other record
+        return Ticket {
+            owner: ticket.owner,
+            event_id: ticket.event_id,
+            seat: ticket.seat,
+            checked_in: true,
+        } then finalize(self.caller, ticket.event_id);
+    }
+
+    finalize ticket_check_in(caller: address, event_id: u64) {
+        let event_info: Event = Mapping::get(events, event_id);
     }
 }
