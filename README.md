@@ -1,3 +1,3 @@
 ### Sesame Event Tickets on Aleo
 
-TODO
+An event ticket application. Create organizers, create events, issue tickets and scan to admit entry.
